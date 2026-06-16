@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mesh × Philips — Store Coverage Map</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#header{background:#fff;border-bottom:1px solid #e0e0e0;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.08);flex-wrap:wrap}
+.logo-pill{background:#0f172a;color:#fff;font-size:11px;font-weight:700;padding:4px 9px;border-radius:5px;letter-spacing:.5px}
+.ph-pill{background:#fff3e0;color:#e65100;font-size:11px;font-weight:600;padding:4px 9px;border-radius:5px}
+#header h1{font-size:14px;font-weight:600;color:#111}
+#header p{font-size:11px;color:#888;margin-top:1px}
+#stats-bar{background:#fff;border-bottom:1px solid #e8e8e8;display:flex;flex-shrink:0;overflow-x:auto}
+.stat{flex:1;min-width:80px;padding:7px 10px;border-right:1px solid #e8e8e8;text-align:center}
+.stat:last-child{border-right:none}
+.stat-val{font-size:16px;font-weight:600}
+.stat-lbl{font-size:9px;color:#888;margin-top:1px}
+.s-cc .stat-val{color:#7c3aed}.s-bw .stat-val{color:#0891b2}.s-ba .stat-val{color:#16a34a}
+#controls{background:#fff;border-bottom:1px solid #e8e8e8;padding:7px 12px;display:flex;gap:5px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.ctrl-label{font-size:11px;color:#888;margin-right:2px}
+.toggle-btn{font-size:11px;padding:4px 9px;border-radius:20px;border:1.5px solid;cursor:pointer;font-weight:500;transition:all .15s;display:flex;align-items:center;gap:4px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.toggle-btn.cc{border-color:#7c3aed;background:#7c3aed;color:#fff}.toggle-btn.cc.off{color:#7c3aed;background:#fff}
+.toggle-btn.bw{border-color:#0891b2;background:#0891b2;color:#fff}.toggle-btn.bw.off{color:#0891b2;background:#fff}
+.toggle-btn.ba{border-color:#16a34a;background:#16a34a;color:#fff}.toggle-btn.ba.off{color:#16a34a;background:#fff}
+.toggle-btn.zones{border-color:#16a34a;background:#dcfce7;color:#166534}.toggle-btn.zones.off{background:#fff;color:#888;border-color:#ccc}
+#map-wrap{position:relative;flex:1;display:flex;flex-direction:column}
+#map{flex:1;width:100%}
+#legend{position:absolute;bottom:30px;left:10px;background:#fff;border-radius:8px;padding:10px 13px;box-shadow:0 2px 10px rgba(0,0,0,0.15);font-size:12px;z-index:5}
+#legend h4{font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+.leg-row{display:flex;align-items:center;gap:7px;margin-bottom:5px;color:#333;font-size:11px}
+.leg-row:last-child{margin-bottom:0}
+.leg-pin{width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.2);flex-shrink:0}
+.leg-circle{width:16px;height:10px;border-radius:50%;border:2px dashed #16a34a;background:rgba(22,163,74,.1);flex-shrink:0}
+#info-panel{position:absolute;top:10px;right:10px;background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 2px 12px rgba(0,0,0,.18);font-size:13px;z-index:5;min-width:210px;max-width:250px;display:none}
+.ip-type{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px}
+.ip-title{font-weight:700;font-size:16px;margin-bottom:8px;color:#111;line-height:1.3}
+.close-btn{position:absolute;top:8px;right:10px;background:none;border:none;cursor:pointer;font-size:15px;color:#aaa}
+#radius-wrap{display:flex;align-items:center;gap:7px;margin-left:auto;font-size:11px;color:#555}
+#radius-wrap input{width:80px}
+#radius-display{font-weight:600;color:#16a34a;min-width:45px}
+</style>
+</head>
+<body>
+<div id="header">
+  <div style="display:flex;align-items:center;gap:8px">
+    <span class="logo-pill">MESH</span>
+    <span style="color:#ccc;font-size:14px">×</span>
+    <span class="ph-pill">Philips</span>
+    <div>
+      <h1>Store Coverage Map — Australia</h1>
+      <p>Mesh support reach zones across retail partners</p>
+    </div>
+  </div>
+  <button onclick="showGeocoder()" style="margin-left:auto;font-size:11px;padding:5px 12px;border-radius:6px;border:1px solid #d1d5db;background:#f8fafc;color:#555;cursor:pointer;white-space:nowrap">⚙️ Update Stores</button>
+</div>
+<div id="stats-bar">
+  <div class="stat s-cc"><div class="stat-val">15</div><div class="stat-lbl">Costco</div></div>
+  <div class="stat s-bw"><div class="stat-val">90</div><div class="stat-lbl">Big W</div></div>
+  <div class="stat s-ba"><div class="stat-val">15</div><div class="stat-lbl">Mesh support</div></div>
+</div>
+<div id="controls">
+  <span class="ctrl-label">Show:</span>
+  <button class="toggle-btn cc" onclick="toggleLayer('cc',this)"><span class="dot" style="background:#fff"></span>Costco</button>
+  <button class="toggle-btn bw" onclick="toggleLayer('bw',this)"><span class="dot" style="background:#fff"></span>Big W</button>
+  <button class="toggle-btn ba" onclick="toggleLayer('ba',this)"><span class="dot" style="background:#fff"></span>Mesh Pins</button>
+  <button class="toggle-btn zones" onclick="toggleLayer('zones',this)"><span class="dot" style="background:#16a34a;opacity:.5"></span>Mesh Zones</button>
+  <div id="radius-wrap">
+    Radius: <input type="range" id="r-slider" min="25" max="300" value="230" step="5" oninput="updateRadius(this.value)">
+    <span id="radius-display">230 km</span>
+  </div>
+</div>
+<div id="map-wrap">
+  <div id="map"></div>
+  <div id="legend">
+    <h4>Legend</h4>
+    <div class="leg-row"><div class="leg-pin" style="background:#7c3aed"></div>Costco</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#0891b2"></div>Big W</div>
+    <div class="leg-row"><div class="leg-pin" style="background:#16a34a"></div>Mesh support</div>
+    <div class="leg-row"><div class="leg-circle"></div><span id="leg-r-txt">230km reach zone</span></div>
+  </div>
+  <div id="info-panel">
+    <button class="close-btn" onclick="this.parentElement.style.display='none'">✕</button>
+    <div class="ip-type" id="ip-type"></div>
+    <div class="ip-title" id="ip-title"></div>
+    <div id="ip-details"></div>
+  </div>
+</div>
+<script>
+const STORES_CC = [
+  {n:"Costco Auburn",lat:-33.8502,lng:151.0249},
+  {n:"Costco Marsden Park",lat:-33.7095,lng:150.8538},
+  {n:"Costco Crossroads (Casula)",lat:-33.9620,lng:150.8997},
+  {n:"Costco Ringwood",lat:-37.8165,lng:145.2282},
+  {n:"Costco Moorabbin Airport (Mentone)",lat:-37.9703,lng:145.0963},
+  {n:"Costco Docklands",lat:-37.8156,lng:144.9355},
+  {n:"Costco Ardeer",lat:-37.7922,lng:144.8290},
+  {n:"Costco Nunawading",lat:-37.8208,lng:145.1888},
+  {n:"Costco North Lakes",lat:-27.2385,lng:152.9999},
+  {n:"Costco Coomera",lat:-27.8625,lng:153.2950},
+  {n:"Costco Ipswich",lat:-27.6283,lng:152.7589},
+  {n:"Costco Osborne Park",lat:-31.8950,lng:115.8058},
+  {n:"Costco Perth Airport",lat:-31.9310,lng:115.9660},
+  {n:"Costco Adelaide (Kilburn)",lat:-34.8530,lng:138.5900},
+  {n:"Costco Canberra (Majura Park)",lat:-35.2981,lng:149.1688},
+];
+
+const STORES_BW = [
+  {n:"Big W Blacktown",lat:-33.7707,lng:150.9059},
+  {n:"Big W Liverpool",lat:-33.9129,lng:150.9242},
+  {n:"Big W Penrith",lat:-33.7495,lng:150.6905},
+  {n:"Big W Campbelltown",lat:-34.0592,lng:150.8155},
+  {n:"Big W Hurstville",lat:-33.9662,lng:151.1052},
+  {n:"Big W Miranda",lat:-34.0342,lng:151.1044},
+  {n:"Big W Parramatta",lat:-33.8175,lng:150.9988},
+  {n:"Big W Hornsby",lat:-33.7024,lng:151.0996},
+  {n:"Big W Rouse Hill",lat:-33.6913,lng:150.9080},
+  {n:"Big W Castle Hill",lat:-33.7354,lng:151.0042},
+  {n:"Big W Tuggerah",lat:-33.3048,lng:151.4141},
+  {n:"Big W Kotara",lat:-32.9456,lng:151.6976},
+  {n:"Big W Maitland",lat:-32.7605,lng:151.5912},
+  {n:"Big W Glendale",lat:-32.9670,lng:151.6386},
+  {n:"Big W Warrawong",lat:-34.4861,lng:150.8866},
+  {n:"Big W Orange",lat:-33.2700,lng:149.1025},
+  {n:"Big W Dubbo",lat:-32.2490,lng:148.6130},
+  {n:"Big W Tamworth",lat:-31.0860,lng:150.9318},
+  {n:"Big W Wagga Wagga",lat:-35.1054,lng:147.3695},
+  {n:"Big W Albury",lat:-36.0745,lng:146.9196},
+  {n:"Big W Coffs Harbour",lat:-30.3075,lng:153.1220},
+  {n:"Big W Port Macquarie",lat:-31.4402,lng:152.8809},
+  {n:"Big W Nowra",lat:-34.9116,lng:150.6026},
+  {n:"Big W Grafton",lat:-29.6898,lng:152.9356},
+  {n:"Big W Lismore",lat:-28.8150,lng:153.2797},
+  {n:"Big W Tweed Heads",lat:-28.2049,lng:153.5393},
+  {n:"Big W Erina",lat:-33.4343,lng:151.3923},
+  {n:"Big W Bathurst",lat:-33.4152,lng:149.5760},
+  {n:"Big W Goulburn",lat:-34.7531,lng:149.7124},
+  {n:"Big W Armidale",lat:-30.5024,lng:151.6558},
+  {n:"Big W Wetherill Park",lat:-33.8576,lng:150.9005},
+  {n:"Big W Casula",lat:-33.9623,lng:150.8965},
+  {n:"Big W Roselands",lat:-33.9290,lng:151.0718},
+  {n:"Big W Bankstown",lat:-33.9113,lng:151.0333},
+  {n:"Big W Baulkham Hills",lat:-33.7500,lng:151.0025},
+  {n:"Big W Belconnen",lat:-35.2384,lng:149.0666},
+  {n:"Big W Tuggeranong",lat:-35.4175,lng:149.0651},
+  {n:"Big W Gungahlin",lat:-35.1867,lng:149.1328},
+  {n:"Big W Watergardens (Taylors Lakes)",lat:-37.6993,lng:144.7758},
+  {n:"Big W Doncaster",lat:-37.7869,lng:145.1253},
+  {n:"Big W Highpoint (Maribyrnong)",lat:-37.7737,lng:144.8888},
+  {n:"Big W Northland",lat:-37.7411,lng:145.0274},
+  {n:"Big W Werribee",lat:-37.8752,lng:144.6796},
+  {n:"Big W Fountain Gate",lat:-38.0208,lng:145.3032},
+  {n:"Big W Frankston",lat:-38.1391,lng:145.1208},
+  {n:"Big W Chadstone",lat:-37.8813,lng:145.0903},
+  {n:"Big W Epping",lat:-37.6457,lng:145.0269},
+  {n:"Big W Knox",lat:-37.8758,lng:145.2329},
+  {n:"Big W Southland",lat:-37.9623,lng:145.0605},
+  {n:"Big W Craigieburn",lat:-37.5939,lng:144.9093},
+  {n:"Big W Geelong",lat:-38.1498,lng:144.3587},
+  {n:"Big W Ballarat",lat:-37.5418,lng:143.8352},
+  {n:"Big W Bendigo",lat:-36.7667,lng:144.2867},
+  {n:"Big W Shepparton",lat:-36.3812,lng:145.3958},
+  {n:"Big W Wodonga",lat:-36.0877,lng:146.9047},
+  {n:"Big W Traralgon",lat:-38.1950,lng:146.5480},
+  {n:"Big W Mildura",lat:-34.1920,lng:142.1499},
+  {n:"Big W Wangaratta",lat:-36.3580,lng:146.3095},
+  {n:"Big W Warrnambool",lat:-38.3815,lng:142.5098},
+  {n:"Big W Carindale",lat:-27.5030,lng:153.1016},
+  {n:"Big W Chermside",lat:-27.3872,lng:153.0303},
+  {n:"Big W Robina",lat:-28.0776,lng:153.3852},
+  {n:"Big W Maroochydore",lat:-26.6551,lng:153.0884},
+  {n:"Big W North Lakes",lat:-27.2383,lng:153.0143},
+  {n:"Big W Ipswich",lat:-27.6128,lng:152.7917},
+  {n:"Big W Browns Plains",lat:-27.6571,lng:153.0491},
+  {n:"Big W Helensvale",lat:-27.8853,lng:153.3206},
+  {n:"Big W Toowoomba",lat:-27.5751,lng:151.9462},
+  {n:"Big W Strathpine",lat:-27.3043,lng:152.9882},
+  {n:"Big W Mt Gravatt",lat:-27.5476,lng:153.0741},
+  {n:"Big W Indooroopilly",lat:-27.4990,lng:152.9732},
+  {n:"Big W Townsville",lat:-19.2795,lng:146.7586},
+  {n:"Big W Cairns",lat:-16.9258,lng:145.7707},
+  {n:"Big W Rockhampton",lat:-23.3437,lng:150.5175},
+  {n:"Big W Mackay",lat:-21.1417,lng:149.1756},
+  {n:"Big W Bundaberg",lat:-24.8948,lng:152.3237},
+  {n:"Big W Hervey Bay",lat:-25.2899,lng:152.8330},
+  {n:"Big W Gladstone",lat:-23.8431,lng:151.2475},
+  {n:"Big W Springwood",lat:-27.6152,lng:153.1412},
+  {n:"Big W Kawana",lat:-26.6959,lng:153.1269},
+  {n:"Big W Noosa",lat:-26.3800,lng:152.9625},
+  {n:"Big W Morayfield",lat:-27.1178,lng:152.9551},
+  {n:"Big W Warwick",lat:-28.2150,lng:152.0327},
+  {n:"Big W Maryborough",lat:-25.5353,lng:152.7028},
+  {n:"Big W Carousel",lat:-32.0189,lng:115.9362},
+  {n:"Big W Hillarys",lat:-31.7968,lng:115.7497},
+  {n:"Big W Innaloo",lat:-31.8775,lng:115.7837},
+  {n:"Big W Mandurah",lat:-32.5336,lng:115.7460},
+  {n:"Big W Rockingham",lat:-32.2878,lng:115.7368},
+  {n:"Big W Midland",lat:-31.8936,lng:116.0119},
+  {n:"Big W Joondalup",lat:-31.7593,lng:115.7669},
+  {n:"Big W Bunbury",lat:-33.3372,lng:115.6442},
+  {n:"Big W Cannington",lat:-32.0181,lng:115.9356},
+  {n:"Big W Cockburn",lat:-32.1289,lng:115.8588},
+  {n:"Big W Marion",lat:-35.0162,lng:138.5458},
+  {n:"Big W Elizabeth",lat:-34.7210,lng:138.6675},
+  {n:"Big W Tea Tree Plaza",lat:-34.8319,lng:138.6907},
+  {n:"Big W Noarlunga",lat:-35.1358,lng:138.4893},
+  {n:"Big W Munno Para",lat:-34.6685,lng:138.6969},
+  {n:"Big W Gawler",lat:-34.5919,lng:138.7397},
+  {n:"Big W Mount Gambier",lat:-37.8311,lng:140.7827},
+  {n:"Big W Eastlands (Rosny Park)",lat:-42.8775,lng:147.3658},
+  {n:"Big W Launceston",lat:-41.4300,lng:147.1340},
+  {n:"Big W Devonport",lat:-41.1857,lng:146.3504},
+  {n:"Big W Glenorchy",lat:-42.8399,lng:147.2862},
+  {n:"Big W Darwin",lat:-12.4075,lng:130.8754},
+  {n:"Big W Palmerston",lat:-12.4779,lng:130.9845},
+];
+
+const MESH_REPS = [
+  {name:"Alisa Tsepelyeva",    suburb:"Westcourt",        state:"QLD", lat:-16.923, lng:145.771},
+  {name:"Carly Castaneda",     suburb:"Northgate",        state:"QLD", lat:-27.414, lng:153.056},
+  {name:"Dulanka Wick",        suburb:"Highton",          state:"VIC", lat:-38.168, lng:144.333},
+  {name:"Jennifer Farrell",    suburb:"Mooloolah Valley", state:"QLD", lat:-26.779, lng:152.960},
+  {name:"Michelle Tonna",      suburb:"Rasmussen",        state:"QLD", lat:-19.292, lng:146.752},
+  {name:"Miguel Angel",        suburb:"Victoria Park",    state:"WA",  lat:-31.969, lng:115.895},
+  {name:"Mukund Rajesh",       suburb:"Darwin",           state:"NT",  lat:-12.462, lng:130.842},
+  {name:"Nancy Lekhi",         suburb:"Alfredton",        state:"VIC", lat:-37.546, lng:143.824},
+  {name:"Nidhi Raj Chawla",    suburb:"Valley View",      state:"SA",  lat:-34.842, lng:138.670},
+  {name:"Sai Amarnath",        suburb:"Chisholm",         state:"NSW", lat:-32.800, lng:151.557},
+  {name:"Violet Forde",        suburb:"Hunters Hill",     state:"NSW", lat:-33.833, lng:151.148},
+  {name:"Rahanan Sathiyakumar",suburb:"Phillip",          state:"ACT", lat:-35.346, lng:149.089},
+  {name:"Lakshmisindhuri Vemana",suburb:"Evandale",       state:"SA",  lat:-34.905, lng:138.643},
+  {name:"Thu (Kristen) Le",    suburb:"Southbank",        state:"VIC", lat:-37.822, lng:144.965},
+  {name:"Mesh Support",        suburb:"Mackay",           state:"QLD", lat:-21.145, lng:149.186},
+];
+
+const RETAILERS = {
+  cc: {label:"Costco", color:"#7c3aed", stores:STORES_CC},
+  bw: {label:"Big W",  color:"#0891b2", stores:STORES_BW},
+};
+
+let map;
+let allMarkers={cc:[],bw:[],ba:[]};
+let allCircles=[];
+let layers={cc:true,bw:true,ba:true,zones:true};
+let radiusKm=230;
+
+function initMap(){
+  map=new google.maps.Map(document.getElementById('map'),{
+    center:{lat:-27.0,lng:134.0},zoom:5,
+    mapTypeControl:true,streetViewControl:false,fullscreenControl:true,
+    styles:[{featureType:"poi",elementType:"labels",stylers:[{visibility:"off"}]}]
+  });
+
+  Object.entries(RETAILERS).forEach(([key,r])=>{
+    r.stores.forEach(s=>{
+      const m=new google.maps.Marker({
+        map,position:{lat:s.lat,lng:s.lng},title:s.n,
+        icon:{path:google.maps.SymbolPath.CIRCLE,scale:key==='cc'?9:7,fillColor:r.color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2},
+        zIndex:5
+      });
+      m.addListener('click',()=>showPanel(s.n,r.label,r.color,`📍 ${s.n}`));
+      allMarkers[key].push(m);
+    });
+  });
+
+  MESH_REPS.forEach(ba=>{
+    const circle=new google.maps.Circle({
+      map,center:{lat:ba.lat,lng:ba.lng},radius:radiusKm*1000,
+      fillColor:'#16a34a',fillOpacity:0.09,
+      strokeColor:'#16a34a',strokeOpacity:0.65,strokeWeight:2,zIndex:1
+    });
+    circle.addListener('click',()=>{
+      const n=countNear(ba.lat,ba.lng,radiusKm);
+      showPanel(ba.name,'Mesh support','#16a34a',
+        `📍 ${ba.suburb}, ${ba.state}<br>🎯 ${radiusKm}km coverage zone<br>🏪 <strong>${n} stores</strong> within reach`);
+    });
+    allCircles.push(circle);
+
+    const pin=new google.maps.Marker({
+      map,position:{lat:ba.lat,lng:ba.lng},title:ba.name,
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:9,fillColor:'#16a34a',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5},
+      label:{text:ba.name.split(' ')[0],color:'#fff',fontSize:'7px',fontWeight:'bold'},
+      zIndex:10
+    });
+    pin.addListener('click',()=>{
+      const n=countNear(ba.lat,ba.lng,radiusKm);
+      showPanel(ba.name,'Mesh support','#16a34a',
+        `📍 ${ba.suburb}, ${ba.state}<br>🎯 ${radiusKm}km reach zone<br>🏪 <strong>${n} stores</strong> within reach`);
+    });
+    allMarkers.ba.push(pin);
+  });
+}
+
+function haversine(a,b,c,d){
+  const R=6371,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180;
+  const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+
+function countNear(lat,lng,km){
+  let n=0;
+  ['cc','bw'].forEach(k=>{
+    allMarkers[k].forEach(m=>{
+      const p=m.getPosition();
+      if(p&&haversine(lat,lng,p.lat(),p.lng())<=km) n++;
+    });
+  });
+  return n;
+}
+
+function showPanel(title,type,color,html){
+  document.getElementById('ip-type').textContent=type;
+  document.getElementById('ip-type').style.color=color;
+  document.getElementById('ip-title').textContent=title;
+  document.getElementById('ip-details').innerHTML=
+    `<div style="margin-top:6px;font-size:12px;color:#555;line-height:1.9">${html}</div>`;
+  document.getElementById('info-panel').style.display='block';
+}
+
+function toggleLayer(key,btn){
+  layers[key]=!layers[key];
+  btn.classList.toggle('off');
+  if(key==='zones') allCircles.forEach(c=>c.setVisible(layers.zones));
+  else allMarkers[key].forEach(m=>m.setVisible(layers[key]));
+}
+
+function updateRadius(val){
+  radiusKm=parseInt(val);
+  document.getElementById('radius-display').textContent=radiusKm+' km';
+  document.getElementById('leg-r-txt').textContent=radiusKm+'km reach zone';
+  allCircles.forEach(c=>c.setRadius(radiusKm*1000));
+}
+
+window.addEventListener('load',()=>{
+  const key='AIzaSyBqCtoUp3O4Pe8rWHcfZtuLxkGTR1ZENP4';
+  const s=document.createElement('script');
+  s.src=`https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap`;
+  s.async=true;s.defer=true;document.head.appendChild(s);
+});
+
+function showGeocoder(){
+  document.getElementById('geo-overlay').style.display='flex';
+}
+
+let geoRunning=false;
+
+async function runGeocode(){
+  if(geoRunning) return;
+  const key=document.getElementById('geo-key').value.trim();
+  if(!key){alert('Please enter your API key');return;}
+  geoRunning=true;
+  const allStores=[];
+  Object.entries(RETAILERS).forEach(([t,r])=>r.stores.forEach(s=>allStores.push({t,n:s.n})));
+  const total=allStores.length;
+  let done=0;
+  const results={cc:[],bw:[]};
+  document.getElementById('geo-bar-wrap').style.display='block';
+  document.getElementById('geo-run-btn').disabled=true;
+  for(const s of allStores){
+    try{
+      const r=await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(s.n+' Australia')}&key=${key}&region=au`);
+      const d=await r.json();
+      if(d.status==='OK'&&d.results[0]){
+        const l=d.results[0].geometry.location;
+        results[s.t].push({n:s.n,lat:Math.round(l.lat*100000)/100000,lng:Math.round(l.lng*100000)/100000});
+      }
+    }catch(e){}
+    done++;
+    const pct=Math.round((done/total)*100);
+    document.getElementById('geo-bar').style.width=pct+'%';
+    document.getElementById('geo-status').textContent=`Looking up stores... ${done} of ${total} (${pct}%)`;
+    await new Promise(r=>setTimeout(r,60));
+  }
+  let out='COPY EVERYTHING BELOW\n\n';
+  Object.keys(results).forEach(k=>{
+    out+=`const STORES_${k.toUpperCase()} = [\n`;
+    results[k].forEach(s=>out+=`  {n:"${s.n}",lat:${s.lat},lng:${s.lng}},\n`);
+    out+=`];\n\n`;
+  });
+  document.getElementById('geo-output').value=out;
+  document.getElementById('geo-output-wrap').style.display='block';
+  document.getElementById('geo-status').textContent='✅ Done! Copy below and paste to Claude.';
+  geoRunning=false;
+}
+
+function copyGeoOutput(){
+  const ta=document.getElementById('geo-output');
+  ta.select();document.execCommand('copy');
+  document.getElementById('geo-copy-btn').textContent='✅ Copied!';
+  setTimeout(()=>document.getElementById('geo-copy-btn').textContent='📋 Copy All',2000);
+}
+</script>
+
+<div id="geo-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:14px;padding:24px 28px;max-width:480px;width:92%;max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="font-size:15px;font-weight:600">Store Coordinate Updater</h3>
+      <button onclick="document.getElementById('geo-overlay').style.display='none'" style="background:none;border:none;font-size:18px;cursor:pointer;color:#aaa">✕</button>
+    </div>
+    <p style="font-size:12px;color:#555;margin-bottom:12px;line-height:1.6">Looks up accurate coordinates for all stores using Google's Geocoding API. Make sure <strong>Geocoding API</strong> is enabled in your Google Cloud Console.</p>
+    <input type="text" id="geo-key" placeholder="Paste your API key (AIzaSy...)" style="width:100%;padding:8px 10px;border:1.5px solid #d1d5db;border-radius:7px;font-size:12px;margin-bottom:10px;font-family:monospace"/>
+    <button id="geo-run-btn" onclick="runGeocode()" style="width:100%;padding:9px;background:#0f172a;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px">Find All Store Coordinates →</button>
+    <div id="geo-status" style="font-size:12px;color:#555;margin-bottom:6px"></div>
+    <div id="geo-bar-wrap" style="display:none;width:100%;height:6px;background:#e5e7eb;border-radius:4px;overflow:hidden;margin-bottom:12px">
+      <div id="geo-bar" style="height:100%;background:#7c3aed;border-radius:4px;width:0%;transition:width .3s"></div>
+    </div>
+    <div id="geo-output-wrap" style="display:none">
+      <p style="font-size:12px;color:#16a34a;font-weight:600;margin-bottom:6px">✅ Done! Copy and paste to Claude:</p>
+      <textarea id="geo-output" readonly style="width:100%;height:200px;font-family:monospace;font-size:10px;border:1px solid #d1d5db;border-radius:6px;padding:8px;resize:vertical"></textarea>
+      <button id="geo-copy-btn" onclick="copyGeoOutput()" style="width:100%;margin-top:8px;padding:8px;background:#16a34a;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer">📋 Copy All</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
